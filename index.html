@@ -1229,14 +1229,16 @@
             } else if (currentStepIndex === totalSteps - 1) {
                 // Final Step: Submission
                 const nextBtn = document.getElementById('next-btn');
+                
+                // 1. Synchronously update UI state (button appearance/text)
                 nextBtn.disabled = true;
                 nextBtn.textContent = 'Submitting...';
                 
-                // *** SECOND ATTEMPT FIX: Use requestAnimationFrame to guarantee the UI updates (repaints) before the async call is queued. ***
-                // This ensures the browser renders "Submitting..." before the main thread yields for the network operation.
-                window.requestAnimationFrame(() => {
+                // 2. *** NEW FIX: Use setTimeout(50) to force the browser to repaint the button 
+                //     change before executing the Firebase network operation. ***
+                setTimeout(() => {
                     submitFormData();
-                });
+                }, 50); 
             }
         }
 
