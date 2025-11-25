@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HostGenius Preferred Partnerships Questionnaire</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap">
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    
+    <!-- NO LONGER USING COMPAT LIBRARIES. Using Modular SDK Imports (v11.6.1) -->
+    <!-- The imports are moved into the <script type="module"> block for better modular usage. -->
+    
     <style>
         :root {
             --primary-color: #2e7d32; /* Rich Green */
@@ -635,6 +636,24 @@
     </div>
 
     <script type="module">
+        // --- Firebase Modular Imports (Updated to latest v11.6.1) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            getDocs, 
+            query, 
+            setLogLevel,
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+
         // Global Configuration Variables
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hg_partnership_app_v1';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
@@ -847,6 +866,9 @@
             }
         };
 
+        // --- Firebase Globals ---
+        let app, auth, db;
+        
         // --- Core Application State ---
         let currentStepIndex = 0;
         let totalSteps = 0;
@@ -1037,12 +1059,13 @@
                 validate: () => true // Summary step is always valid
             };
         }
-
+        
         // --- Firebase Initialization ---
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        firebase.firestore.setLogLevel('debug'); // For logging in console
+        // Initialize Firebase services immediately upon script execution
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        setLogLevel('debug'); // For logging in console
 
         /**
          * Authenticates with Firebase using custom token or anonymously.
@@ -1050,11 +1073,11 @@
         async function authenticateFirebase() {
             try {
                 if (initialAuthToken && initialAuthToken.length > 50) { // Check for a realistically long token
-                    const userCredential = await auth.signInWithCustomToken(initialAuthToken);
+                    const userCredential = await signInWithCustomToken(auth, initialAuthToken);
                     console.log('Firebase authenticated with custom token.');
                     formState.uid = userCredential.user.uid;
                 } else {
-                    const userCredential = await auth.signInAnonymously();
+                    const userCredential = await signInAnonymously(auth);
                     console.log('Firebase authenticated anonymously.');
                     formState.uid = userCredential.user.uid;
                 }
@@ -1062,7 +1085,7 @@
                 console.error('Firebase Authentication Error:', error);
                 // Fallback to anonymous if custom token fails
                 try {
-                     const userCredential = await auth.signInAnonymously();
+                     const userCredential = await signInAnonymously(auth);
                      console.log('Firebase authenticated anonymously (after fallback).');
                      formState.uid = userCredential.user.uid;
                 } catch (anonError) {
@@ -1072,10 +1095,9 @@
         }
         
         /**
-         * Submits the form data to Firestore.
+         * Submits the form data to Firestore using modular functions.
          */
         async function submitFormData() {
-            formState.submissionTime = firebase.firestore.FieldValue.serverTimestamp();
             const dataToSave = {
                 appId: appId,
                 uid: formState.uid,
@@ -1083,16 +1105,23 @@
                 companyName: formState.companyName,
                 selectedServices: formState.selectedServices,
                 answers: formState.answers,
-                timestamp: formState.submissionTime
+                timestamp: serverTimestamp() // Using modular serverTimestamp
             };
 
             try {
-                const docRef = await db.collection(FIRESTORE_COLLECTION_PATH).add(dataToSave);
+                // Using modular addDoc and collection functions
+                const docRef = await addDoc(collection(db, FIRESTORE_COLLECTION_PATH), dataToSave);
                 console.log('Document successfully written with ID:', docRef.id);
+                
+                // Success: show modal and reset button
                 document.getElementById('success-modal').style.display = 'flex';
+                document.getElementById('next-btn').disabled = false;
+                document.getElementById('next-btn').textContent = 'Confirm & Submit';
+
             } catch (error) {
                 console.error('Error writing document:', error);
-                document.getElementById('validation-error').textContent = 'Submission failed due to a server error. Please try again.';
+                // Error: show error message and reset button
+                document.getElementById('validation-error').textContent = 'Submission failed due to a server error. Please try again. Check console for details.';
                 document.getElementById('validation-error').style.display = 'block';
                 document.getElementById('next-btn').disabled = false;
                 document.getElementById('next-btn').textContent = 'Confirm & Submit';
@@ -1230,10 +1259,12 @@
             try {
                 // Ensure Firebase is signed in, if not, signInAnonymously (should be handled on load)
                 if (!auth.currentUser) {
-                    await auth.signInAnonymously();
+                    await signInAnonymously(auth);
                 }
 
-                const querySnapshot = await db.collection(FIRESTORE_COLLECTION_PATH).get();
+                // Using modular getDocs and collection functions
+                const q = query(collection(db, FIRESTORE_COLLECTION_PATH));
+                const querySnapshot = await getDocs(q);
                 
                 let submissions = [];
                 querySnapshot.forEach(doc => {
@@ -1248,7 +1279,8 @@
                     return;
                 }
                 
-                submissions.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis()); // Sort by newest first
+                // Sorting is done client-side since orderBy is not guaranteed to work without indexes
+                submissions.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()); // Sort by newest first
 
                 submissions.forEach(sub => {
                     const date = sub.timestamp.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -1342,8 +1374,8 @@
         
         // --- Event Listeners and Initial Setup ---
         document.addEventListener('DOMContentLoaded', () => {
+            // Wait for authentication before rendering the form to ensure formState.uid is set
             authenticateFirebase().then(() => {
-                // Initialize the form flow
                 renderStep(); 
             });
 
