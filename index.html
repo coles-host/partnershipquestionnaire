@@ -1232,10 +1232,11 @@
                 nextBtn.disabled = true;
                 nextBtn.textContent = 'Submitting...';
                 
-                // *** FIX APPLIED HERE: Use a slight delay to ensure the UI updates before the async Firebase call starts ***
-                setTimeout(() => {
+                // *** SECOND ATTEMPT FIX: Use requestAnimationFrame to guarantee the UI updates (repaints) before the async call is queued. ***
+                // This ensures the browser renders "Submitting..." before the main thread yields for the network operation.
+                window.requestAnimationFrame(() => {
                     submitFormData();
-                }, 50);
+                });
             }
         }
 
@@ -1281,10 +1282,16 @@
                 }
                 
                 // Sorting is done client-side since orderBy is not guaranteed to work without indexes
-                submissions.sort((a, b) => b.timestamp.toDate().getTime() - a.timestamp.toDate().getTime()); // Sort by newest first
+                submissions.sort((a, b) => {
+                    const timeA = a.timestamp && a.timestamp.toDate ? a.timestamp.toDate().getTime() : 0;
+                    const timeB = b.timestamp && b.timestamp.toDate ? b.timestamp.toDate().getTime() : 0;
+                    return timeB - timeA; // Sort by newest first
+                });
 
                 submissions.forEach(sub => {
-                    const date = sub.timestamp.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const date = sub.timestamp && sub.timestamp.toDate 
+                        ? sub.timestamp.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : 'N/A';
                     const services = sub.selectedServices.map(id => servicesList.find(s => s.id === id)?.label.split(' ')[0] || id).join(', ');
                     
                     const row = tableBody.insertRow();
@@ -1325,7 +1332,7 @@
                     <h3>Contact & Meta</h3>
                     <div class="summary-answer">
                         <span class="summary-question">Date:</span>
-                        <span class="summary-value">${submissionData.timestamp.toDate().toLocaleString()}</span>
+                        <span class="summary-value">${submissionData.timestamp && submissionData.timestamp.toDate ? submissionData.timestamp.toDate().toLocaleString() : 'N/A'}</span>
                     </div>
                     <div class="summary-answer">
                         <span class="summary-question">Full Name:</span>
