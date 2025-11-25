@@ -6,9 +6,6 @@
     <title>HostGenius Preferred Partnerships Questionnaire</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap">
     
-    <!-- NO LONGER USING COMPAT LIBRARIES. Using Modular SDK Imports (v11.6.1) -->
-    <!-- The imports are moved into the <script type="module"> block for better modular usage. -->
-    
     <style>
         :root {
             --primary-color: #2e7d32; /* Rich Green */
@@ -402,7 +399,6 @@
             box-shadow: 0 15px 30px rgba(0, 0, 0, 0.35);
             position: relative;
             animation: modalSlide 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            /* FIX: Max height and scrolling for long content (Admin View Fix) */
             max-height: 90vh; 
             overflow-y: auto;
         }
@@ -1232,9 +1228,14 @@
                 renderStep();
             } else if (currentStepIndex === totalSteps - 1) {
                 // Final Step: Submission
-                document.getElementById('next-btn').disabled = true;
-                document.getElementById('next-btn').textContent = 'Submitting...';
-                submitFormData();
+                const nextBtn = document.getElementById('next-btn');
+                nextBtn.disabled = true;
+                nextBtn.textContent = 'Submitting...';
+                
+                // *** FIX APPLIED HERE: Use a slight delay to ensure the UI updates before the async Firebase call starts ***
+                setTimeout(() => {
+                    submitFormData();
+                }, 50);
             }
         }
 
