@@ -1104,6 +1104,8 @@
                 timestamp: serverTimestamp() // Using modular serverTimestamp
             };
 
+            const nextBtn = document.getElementById('next-btn');
+            
             try {
                 // Using modular addDoc and collection functions
                 const docRef = await addDoc(collection(db, FIRESTORE_COLLECTION_PATH), dataToSave);
@@ -1111,16 +1113,16 @@
                 
                 // Success: show modal and reset button
                 document.getElementById('success-modal').style.display = 'flex';
-                document.getElementById('next-btn').disabled = false;
-                document.getElementById('next-btn').textContent = 'Confirm & Submit';
+                nextBtn.disabled = false;
+                nextBtn.textContent = 'Confirm & Submit';
 
             } catch (error) {
                 console.error('Error writing document:', error);
                 // Error: show error message and reset button
                 document.getElementById('validation-error').textContent = 'Submission failed due to a server error. Please try again. Check console for details.';
                 document.getElementById('validation-error').style.display = 'block';
-                document.getElementById('next-btn').disabled = false;
-                document.getElementById('next-btn').textContent = 'Confirm & Submit';
+                nextBtn.disabled = false;
+                nextBtn.textContent = 'Confirm & Submit';
             }
         }
         
@@ -1230,15 +1232,16 @@
                 // Final Step: Submission
                 const nextBtn = document.getElementById('next-btn');
                 
-                // 1. Synchronously update UI state (button appearance/text)
+                // 1. Synchronous UI Update (Disable button and change text)
                 nextBtn.disabled = true;
                 nextBtn.textContent = 'Submitting...';
                 
-                // 2. *** NEW FIX: Use setTimeout(50) to force the browser to repaint the button 
-                //     change before executing the Firebase network operation. ***
-                setTimeout(() => {
+                // 2. *** NEW FIX: Use Promise.resolve().then() to force a microtask delay.
+                // This ensures the browser repaints the button state before the synchronous part 
+                // of the Firestore request begins, preventing the visible UI freeze. ***
+                Promise.resolve().then(() => {
                     submitFormData();
-                }, 50); 
+                });
             }
         }
 
